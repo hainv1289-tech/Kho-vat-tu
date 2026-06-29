@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<title>Kho Vật Tư</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiS2hvIFZhdCBUdSIsInNob3J0X25hbWUiOiJLaG9WVCIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwic3RhcnRfdXJsIjoiLiIsImJhY2tncm91bmRfY29sb3IiOiIjMUExODE2IiwidGhlbWVfY29sb3IiOiIjQzc1QTI4In0=">
+<style>
+				  :root{
+		    --concrete-900:#1A1816;
+		    --concrete-800:#26221F;
+    --concrete-700:#332E2A;
+    --concrete-600:#4A433D;
+    --steel-500:#7A8088;
+    --steel-300:#B8BCC0;
+    --paper:#F2EEE6;
+    --rust-500:#C75A28;
+    --rust-600:#A8481E;
+    --rebar-yellow:#E8B23D;
+    --ok-green:#5C8A4A;
+    --danger:#B8453A;
+    --radius:10px;
+    --font-display: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+    --font-mono: 'SF Mono', ui-monospace, Menlo, monospace;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;height:100%;background:var(--concrete-900);color:var(--paper);font-family:var(--font-display);overscroll-behavior:none;}
+  body{
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+
+  /* ===== Header ===== */
+  .topbar{
+    background:var(--concrete-800);
+    border-bottom:3px solid var(--rust-500);
+    padding:14px 16px 12px;
+    flex-shrink:0;
+  }
+  .topbar h1{
+    font-size:19px;margin:0 0 2px;font-weight:800;letter-spacing:0.2px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .topbar .sub{font-size:12px;color:var(--steel-300);margin:0;}
+  .badge-count{
+    background:var(--rust-500);color:var(--paper);font-size:11px;font-weight:700;
+    padding:2px 8px;border-radius:20px;font-family:var(--font-mono);
+  }
+
+  /* ===== Search bar ===== */
+  .searchbar{
+    display:flex;gap:8px;padding:10px 16px;background:var(--concrete-800);
+    border-bottom:1px solid var(--concrete-700); flex-shrink:0;
+  }
+  .searchbar input{
+    flex:1;background:var(--concrete-900);border:1.5px solid var(--concrete-600);
+    color:var(--paper);padding:11px 14px;border-radius:var(--radius);font-size:15px;
+  }
+  .searchbar input:focus{outline:none;border-color:var(--rust-500);}
+  .icon-btn{
+    background:var(--concrete-700);border:1.5px solid var(--concrete-600);
+    color:var(--paper);width:44px;height:44px;border-radius:var(--radius);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .icon-btn:active{background:var(--concrete-600);}
+
+  /* ===== List ===== */
+  #list{flex:1;overflow-y:auto;padding:10px 12px 90px;-webkit-overflow-scrolling:touch;}
+  .empty-state{
+    text-align:center;color:var(--steel-500);padding:60px 24px;font-size:14px;line-height:1.6;
+  }
+  .empty-state .big-icon{font-size:42px;display:block;margin-bottom:10px;opacity:0.5;}
+
+  .item-card{
+    display:flex;gap:12px;background:var(--concrete-800);border:1px solid var(--concrete-700);
+    border-radius:var(--radius);padding:10px;margin-bottom:8px;align-items:center;
+  }
+  .item-card:active{background:var(--concrete-700);}
+  .item-thumb{
+    width:56px;height:56px;border-radius:8px;background:var(--concrete-700);
+    flex-shrink:0;object-fit:cover;display:flex;align-items:center;justify-content:center;
+    color:var(--steel-500);font-size:22px;
+  }
+  .item-info{flex:1;min-width:0;}
+  .item-code{
+    font-family:var(--font-mono);font-size:11px;color:var(--rebar-yellow);font-weight:700;
+    letter-spacing:0.3px;
+  }
+  .item-name{font-size:15px;font-weight:600;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .item-loc{font-size:12px;color:var(--steel-300);display:flex;align-items:center;gap:4px;}
+  .chev{color:var(--steel-500);font-size:18px;flex-shrink:0;}
+
+  /* ===== Bottom Tab Bar ===== */
+  .tabbar{
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--concrete-800);border-top:1px solid var(--concrete-700);
+    display:flex;padding-bottom:env(safe-area-inset-bottom);
+    z-index:50;
+  }
+  .tabbar button{
+    flex:1;background:none;border:none;color:var(--steel-500);
+    padding:9px 0 8px;font-size:11px;display:flex;flex-direction:column;
+    align-items:center;gap:3px;font-family:inherit;font-weight:600;
+  }
+  .tabbar button.active{color:var(--rust-500);}
+  .tabbar .ic{font-size:20px;}
+  .tabbar .scan-btn{
+    background:var(--rust-500);color:var(--paper);border-radius:50%;
+    width:54px;height:54px;margin-top:-22px;display:flex;align-items:center;
+    justify-content:center;font-size:24px;box-shadow:0 4px 12px rgba(0,0,0,0.4);
+    border:4px solid var(--concrete-900);
+  }
+  .tabbar .scan-wrap{flex:1;display:flex;flex-direction:column;align-items:center;}
+  .tabbar .scan-wrap span{font-size:11px;color:var(--rust-500);font-weight:700;margin-top:2px;}
+
+  /* ===== Screens (Scan / Detail / Form) ===== */
+  .screen{
+    position:fixed;inset:0;background:var(--concrete-900);z-index:100;
+    display:flex;flex-direction:column;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .screen-header{
+    display:flex;align-items:center;gap:10px;padding:14px 16px;
+    background:var(--concrete-800);border-bottom:1px solid var(--concrete-700);flex-shrink:0;
+  }
+  .screen-header h2{font-size:17px;margin:0;flex:1;font-weight:800;}
+  .back-btn{
+    background:none;border:none;color:var(--paper);font-size:24px;padding:0 6px;
+    line-height:1;font-family:inherit;
+  }
+  .text-btn{background:none;border:none;color:var(--rust-500);font-size:15px;font-weight:700;font-family:inherit;padding:6px 4px;}
+  .screen-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+  /* Scanner */
+  #scan-screen .screen-body{position:relative;background:#000;}
+  #scanner-video{width:100%;height:100%;object-fit:cover;}
+  .scan-frame{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:78%;max-width:320px;aspect-ratio:1.4;border:3px solid var(--rebar-yellow);
+    border-radius:14px;box-shadow:0 0 0 2000px rgba(0,0,0,0.45);
+  }
+  .scan-hint{
+    position:absolute;bottom:36px;left:0;right:0;text-align:center;
+    color:var(--paper);font-size:14px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,0.8);
+    padding:0 24px;
+  }
+  .scan-fallback{
+    padding:20px;text-align:center;color:var(--steel-300);
+  }
+  .manual-input-row{
+    display:flex;gap:8px;padding:14px 16px;background:var(--concrete-800);
+    border-top:1px solid var(--concrete-700);
+  }
+  .manual-input-row input{
+    flex:1;background:var(--concrete-900);border:1.5px solid var(--concrete-600);
+    color:var(--paper);padding:11px 14px;border-radius:var(--radius);font-size:15px;
+    font-family:var(--font-mono);
+  }
+  .btn-primary{
+    background:var(--rust-500);color:var(--paper);border:none;border-radius:var(--radius);
+    padding:11px 18px;font-size:15px;font-weight:700;font-family:inherit;
+  }
+  .btn-primary:active{background:var(--rust-600);}
+
+  /* Detail screen */
+  .detail-photo{
+    width:100%;aspect-ratio:1.3;background:var(--concrete-800);
+    display:flex;align-items:center;justify-content:center;color:var(--steel-500);
+    font-size:48px;position:relative;overflow:hidden;
+  }
+  .detail-photo img{width:100%;height:100%;object-fit:cover;}
+  .detail-body{padding:18px 18px 40px;}
+  .detail-code-row{
+    display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;
+  }
+  .detail-code{font-family:var(--font-mono);color:var(--rebar-yellow);font-size:13px;font-weight:700;}
+  .pill{
+    font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
+  }
+  .pill.ok{background:rgba(92,138,74,0.2);color:var(--ok-green);}
+  .pill.low{background:rgba(184,69,58,0.2);color:var(--danger);}
+  .detail-name{font-size:22px;font-weight:800;margin:4px 0 14px;line-height:1.25;}
+  .field-row{
+    display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--concrete-700);
+  }
+  .field-label{width:96px;flex-shrink:0;color:var(--steel-300);font-size:13px;padding-top:1px;}
+  .field-value{flex:1;font-size:15px;line-height:1.45;white-space:pre-wrap;}
+  .field-value.empty{color:var(--steel-500);font-style:italic;}
+  .detail-actions{display:flex;gap:10px;margin-top:20px;}
+  .detail-actions button{flex:1;padding:13px;border-radius:var(--radius);font-size:15px;font-weight:700;font-family:inherit;border:none;}
+  .btn-edit{background:var(--concrete-700);color:var(--paper);border:1.5px solid var(--concrete-600) !important;}
+  .btn-delete{background:rgba(184,69,58,0.15);color:var(--danger);}
+
+  /* Form screen */
+  .form-body{padding:18px 16px 50px;}
+  .photo-picker{
+    width:100%;aspect-ratio:1.5;background:var(--concrete-800);border:2px dashed var(--concrete-600);
+    border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--steel-300);font-size:14px;gap:8px;margin-bottom:18px;overflow:hidden;position:relative;
+  }
+  .photo-picker img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  .photo-picker .ic{font-size:32px;}
+  .photo-picker input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+  .form-group{margin-bottom:16px;}
+  .form-group label{
+    display:block;font-size:13px;color:var(--steel-300);margin-bottom:6px;font-weight:600;
+  }
+  .form-group .req{color:var(--rust-500);}
+  .form-group input, .form-group textarea{
+    width:100%;background:var(--concrete-800);border:1.5px solid var(--concrete-600);
+    color:var(--paper);padding:12px 14px;border-radius:var(--radius);font-size:15px;
+    font-family:inherit;
+  }
+  .form-group input:focus, .form-group textarea:focus{outline:none;border-color:var(--rust-500);}
+  .form-group textarea{resize:vertical;min-height:80px;}
+  .code-display{
+    font-family:var(--font-mono);background:var(--concrete-800);border:1.5px solid var(--rust-500);
+    color:var(--rebar-yellow);padding:12px 14px;border-radius:var(--radius);font-size:16px;font-weight:700;
+    text-align:center;margin-bottom:16px;
+  }
+  .save-bar{
+    padding:14px 16px;background:var(--concrete-800);border-top:1px solid var(--concrete-700);
+  }
+  .save-bar button{width:100%;padding:14px;font-size:16px;}
+
+  /* toast */
+  #toast{
+    position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
+    background:var(--concrete-700);color:var(--paper);padding:10px 20px;border-radius:30px;
+    font-size:14px;font-weight:600;z-index:200;opacity:0;transition:opacity 0.25s;
+    border:1px solid var(--concrete-600); pointer-events:none; white-space:nowrap;
+  }
+  #toast.show{opacity:1;}
+
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== MAIN: LIST ===== -->
+  <div id="main-screen">
+    <div class="topbar">
+      <h1>🏗️ Kho Vật Tư <span class="badge-count" id="item-count">0</span></h1>
+      <p class="sub">Vật tư &amp; công cụ dụng cụ</p>
+    </div>
+    <div class="searchbar">
+      <input type="text" id="search-input" placeholder="Tìm theo mã, tên, vị trí..." autocomplete="off" autocapitalize="off">
+      <button class="icon-btn" id="clear-search-btn">✕</button>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <!-- ===== TAB BAR ===== -->
+  <div class="tabbar">
+    <button class="active" id="tab-list"><span class="ic">📋</span>Danh sách</button>
+    <div class="scan-wrap">
+      <button class="scan-btn" id="tab-scan">▦</button>
+      <span>Quét mã</span>
+    </div>
+    <button id="tab-add"><span class="ic">＋</span>Thêm mới</button>
+  </div>
+
+  <!-- ===== SCAN SCREEN ===== -->
+  <div class="screen hidden" id="scan-screen">
+    <div class="screen-header">
+      <button class="back-btn" id="scan-close">✕</button>
+      <h2>Quét mã vật tư</h2>
+    </div>
+    <div class="screen-body">
+      <video id="scanner-video" autoplay muted playsinline></video>
+      <div class="scan-frame"></div>
+      <div class="scan-hint" id="scan-hint">Đưa mã QR/vạch vào khung</div>
+    </div>
+    <div class="manual-input-row">
+      <input type="text" id="manual-code-input" placeholder="Hoặc nhập mã tay, ví dụ VT-001" autocapitalize="characters">
+      <button class="btn-primary" id="manual-code-go">Tra</button>
+    </div>
+  </div>
+
+  <!-- ===== DETAIL SCREEN ===== -->
+  <div class="screen hidden" id="detail-screen">
+    <div class="screen-header">
+      <button class="back-btn" id="detail-close">‹</button>
+      <h2>Chi tiết</h2>
+      <button class="text-btn" id="detail-edit-btn">Sửa</button>
+    </div>
+    <div class="screen-body">
+      <div class="detail-photo" id="detail-photo">📦</div>
+      <div class="detail-body">
+        <div class="detail-code-row">
+          <span class="detail-code" id="detail-code"></span>
+          <span class="pill ok" id="detail-stock-pill"></span>
+        </div>
+        <div class="detail-name" id="detail-name"></div>
+
+        <div class="field-row">
+          <div class="field-label">Vị trí</div>
+          <div class="field-value" id="detail-loc"></div>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Đơn vị tính</div>
+          <div class="field-value" id="detail-unit"></div>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Tồn kho</div>
+          <div class="field-value" id="detail-qty"></div>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Ghi chú</div>
+          <div class="field-value" id="detail-note"></div>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Cập nhật</div>
+          <div class="field-value" id="detail-updated"></div>
+        </div>
+
+        <div class="detail-actions">
+          <button class="btn-edit" id="detail-edit-btn2">✏️ Sửa thông tin</button>
+          <button class="btn-delete" id="detail-delete-btn">🗑️ Xoá</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FORM SCREEN (Add/Edit) ===== -->
+  <div class="screen hidden" id="form-screen">
+    <div class="screen-header">
+      <button class="back-btn" id="form-close">✕</button>
+      <h2 id="form-title">Thêm vật tư</h2>
+    </div>
+    <div class="screen-body">
+      <div class="form-body">
+        <div class="code-display" id="form-code-display"></div>
+
+        <label class="photo-picker" id="photo-picker">
+          <span class="ic">📷</span>
+          <span>Chụp / chọn ảnh sản phẩm</span>
+          <input type="file" accept="image/*" id="form-photo-input">
+        </label>
+
+        <div class="form-group">
+          <label>Mã vật tư <span class="req">*</span></label>
+          <input type="text" id="form-code" placeholder="VD: VT-001" autocapitalize="characters">
+        </div>
+        <div class="form-group">
+          <label>Tên sản phẩm <span class="req">*</span></label>
+          <input type="text" id="form-name" placeholder="VD: Bu lông M12x50">
+        </div>
+        <div class="form-group">
+          <label>Vị trí trong kho</label>
+          <input type="text" id="form-loc" placeholder="VD: Kệ A3 - tầng 2">
+        </div>
+        <div class="form-group">
+          <label>Đơn vị tính</label>
+          <input type="text" id="form-unit" placeholder="VD: cái / kg / cuộn / bộ">
+        </div>
+        <div class="form-group">
+          <label>Tồn kho hiện tại</label>
+          <input type="number" inputmode="decimal" id="form-qty" placeholder="VD: 120">
+        </div>
+        <div class="form-group">
+          <label>Ghi chú / lưu ý nhận diện</label>
+          <textarea id="form-note" placeholder="VD: Ốc đầu lục giác, mạ kẽm, dùng cho khuôn cống D600. Dễ nhầm với VT-002 (M12x40, ngắn hơn)."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="save-bar">
+      <button class="btn-primary" id="form-save-btn">Lưu thông tin</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ===================== DB (IndexedDB) =====================
+  const DB_NAME = "khoVatTuDB";
+  const STORE = "items";
+  let db = null;
+
+  function openDB(){
+    return new Promise((resolve, reject)=>{
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = (e)=>{
+        const _db = e.target.result;
+        if(!_db.objectStoreNames.contains(STORE)){
+          const store = _db.createObjectStore(STORE, {keyPath:"code"});
+          store.createIndex("name", "name", {unique:false});
+        }
+      };
+      req.onsuccess = (e)=>{ db = e.target.result; resolve(db); };
+      req.onerror = (e)=> reject(e);
+    });
+  }
+
+  function dbGetAll(){
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORE, "readonly");
+      const store = tx.objectStore(STORE);
+      const req = store.getAll();
+      req.onsuccess = ()=> resolve(req.result || []);
+      req.onerror = (e)=> reject(e);
+    });
+  }
+  function dbGet(code){
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORE, "readonly");
+      const req = tx.objectStore(STORE).get(code);
+      req.onsuccess = ()=> resolve(req.result || null);
+      req.onerror = (e)=> reject(e);
+    });
+  }
+  function dbPut(item){
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORE, "readwrite");
+      const req = tx.objectStore(STORE).put(item);
+      req.onsuccess = ()=> resolve();
+      req.onerror = (e)=> reject(e);
+    });
+  }
+  function dbDelete(code){
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORE, "readwrite");
+      const req = tx.objectStore(STORE).delete(code);
+      req.onsuccess = ()=> resolve();
+      req.onerror = (e)=> reject(e);
+    });
+  }
+
+  // ===================== State =====================
+  let allItems = [];
+  let currentDetailCode = null;
+  let editingCode = null; // null = adding new, else editing existing
+  let pendingPhotoDataUrl = null;
+  let scanStream = null;
+  let scanRAF = null;
+
+  // ===================== Helpers =====================
+  function showToast(msg){
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(()=> t.classList.remove("show"), 1800);
+  }
+
+  function fmtDate(iso){
+    if(!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString("vi-VN", {day:"2-digit",month:"2-digit",year:"numeric"}) + " " +
+           d.toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit"});
+  }
+
+  function normalize(str){
+    return (str||"").toString().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/đ/g,"d");
+  }
+
+  // ===================== Screen management =====================
+  function showScreen(id){
+    document.querySelectorAll(".screen").forEach(s=>s.classList.add("hidden"));
+    if(id) document.getElementById(id).classList.remove("hidden");
+  }
+  function closeAllScreens(){
+    document.querySelectorAll(".screen").forEach(s=>s.classList.add("hidden"));
+    stopScanner();
+  }
+
+  // ===================== Render list =====================
+  function renderList(filterText){
+    const list = document.getElementById("list");
+    const q = normalize(filterText||"");
+    let items = allItems.slice().sort((a,b)=> a.code.localeCompare(b.code, 'vi'));
+    if(q){
+      items = items.filter(it=>
+        normalize(it.code).includes(q) ||
+        normalize(it.name).includes(q) ||
+        normalize(it.location).includes(q)
+      );
+    }
+    document.getElementById("item-count").textContent = allItems.length;
+
+    if(items.length === 0){
+      list.innerHTML = `<div class="empty-state">
+        <span class="big-icon">📦</span>
+        ${allItems.length===0 ? "Chưa có vật tư nào.<br>Bấm <b>Quét mã</b> hoặc <b>Thêm mới</b> để bắt đầu nhập." : "Không tìm thấy kết quả phù hợp."}
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = items.map(it=>{
+      const thumb = it.photo
+        ? `<img class="item-thumb" src="${it.photo}">`
+        : `<div class="item-thumb">📦</div>`;
+      return `<div class="item-card" data-code="${escapeHtml(it.code)}">
+        ${thumb}
+        <div class="item-info">
+          <div class="item-code">${escapeHtml(it.code)}</div>
+          <div class="item-name">${escapeHtml(it.name)}</div>
+          <div class="item-loc">📍 ${escapeHtml(it.location || "Chưa có vị trí")}</div>
+        </div>
+        <div class="chev">›</div>
+      </div>`;
+    }).join("");
+
+    list.querySelectorAll(".item-card").forEach(card=>{
+      card.addEventListener("click", ()=> openDetail(card.dataset.code));
+    });
+  }
+
+  function escapeHtml(str){
+    return (str||"").toString()
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  async function refreshAndRender(){
+    allItems = await dbGetAll();
+    renderList(document.getElementById("search-input").value);
+  }
+
+  // ===================== Detail screen =====================
+  async function openDetail(code){
+    const item = await dbGet(code);
+    if(!item){
+      // Not found -> offer to create
+      openForm(code);
+      return;
+    }
+    currentDetailCode = code;
+    document.getElementById("detail-code").textContent = item.code;
+    document.getElementById("detail-name").textContent = item.name;
+    document.getElementById("detail-loc").textContent = item.location || "—";
+    document.getElementById("detail-loc").classList.toggle("empty", !item.location);
+    document.getElementById("detail-unit").textContent = item.unit || "—";
+    document.getElementById("detail-unit").classList.toggle("empty", !item.unit);
+    document.getElementById("detail-qty").textContent = (item.qty !== undefined && item.qty !== null && item.qty !== "") ? item.qty : "—";
+    document.getElementById("detail-qty").classList.toggle("empty", item.qty === undefined || item.qty === null || item.qty === "");
+    document.getElementById("detail-note").textContent = item.note || "Chưa có ghi chú";
+    document.getElementById("detail-note").classList.toggle("empty", !item.note);
+    document.getElementById("detail-updated").textContent = fmtDate(item.updatedAt);
+
+    const photoEl = document.getElementById("detail-photo");
+    photoEl.innerHTML = item.photo ? `<img src="${item.photo}">` : "📦";
+
+    const pill = document.getElementById("detail-stock-pill");
+    const qtyNum = parseFloat(item.qty);
+    if(!isNaN(qtyNum)){
+      if(qtyNum <= 0){ pill.textContent = "Hết hàng"; pill.className = "pill low"; }
+      else if(qtyNum <= 5){ pill.textContent = "Sắp hết"; pill.className = "pill low"; }
+      else { pill.textContent = "Còn hàng"; pill.className = "pill ok"; }
+    } else {
+      pill.textContent = ""; pill.className = "pill";
+    }
+
+    showScreen("detail-screen");
+  }
+
+  document.getElementById("detail-close").addEventListener("click", ()=>{ closeAllScreens(); });
+  document.getElementById("detail-edit-btn").addEventListener("click", ()=> openForm(currentDetailCode));
+  document.getElementById("detail-edit-btn2").addEventListener("click", ()=> openForm(currentDetailCode));
+  document.getElementById("detail-delete-btn").addEventListener("click", async ()=>{
+    if(confirm("Xoá vật tư này khỏi kho dữ liệu? Hành động này không thể hoàn tác.")){
+      await dbDelete(currentDetailCode);
+      await refreshAndRender();
+      closeAllScreens();
+      showToast("Đã xoá");
+    }
+  });
+
+  // ===================== Form screen (add/edit) =====================
+  function openForm(prefillCode){
+    editingCode = null;
+    pendingPhotoDataUrl = null;
+    document.getElementById("form-photo-input").value = "";
+    resetPhotoPicker();
+
+    document.getElementById("form-code").value = "";
+    document.getElementById("form-name").value = "";
+    document.getElementById("form-loc").value = "";
+    document.getElementById("form-unit").value = "";
+    document.getElementById("form-qty").value = "";
+    document.getElementById("form-note").value = "";
+    document.getElementById("form-code").disabled = false;
+    document.getElementById("form-code-display").classList.add("hidden");
+    document.getElementById("form-code").parentElement.classList.remove("hidden");
+
+    if(prefillCode){
+      document.getElementById("form-code").value = prefillCode;
+    }
+
+    document.getElementById("form-title").textContent = "Thêm vật tư mới";
+    showScreen("form-screen");
+    setTimeout(()=> document.getElementById(prefillCode ? "form-name" : "form-code").focus(), 250);
+  }
+
+  async function openFormForEdit(code){
+    const item = await dbGet(code);
+    if(!item) return;
+    editingCode = code;
+    pendingPhotoDataUrl = item.photo || null;
+
+    if(item.photo){
+      showPhotoPreview(item.photo);
+    } else {
+      resetPhotoPicker();
+    }
+
+    document.getElementById("form-code").value = item.code;
+    document.getElementById("form-code").disabled = true;
+    document.getElementById("form-code-display").textContent = item.code;
+    document.getElementById("form-code-display").classList.remove("hidden");
+    document.getElementById("form-code").parentElement.classList.add("hidden");
+
+    document.getElementById("form-name").value = item.name || "";
+    document.getElementById("form-loc").value = item.location || "";
+    document.getElementById("form-unit").value = item.unit || "";
+    document.getElementById("form-qty").value = (item.qty !== undefined && item.qty !== null) ? item.qty : "";
+    document.getElementById("form-note").value = item.note || "";
+
+    document.getElementById("form-title").textContent = "Sửa thông tin";
+    showScreen("form-screen");
+  }
+
+  function resetPhotoPicker(){
+    const picker = document.getElementById("photo-picker");
+    picker.innerHTML = `<span class="ic">📷</span><span>Chụp / chọn ảnh sản phẩm</span><input type="file" accept="image/*" id="form-photo-input">`;
+    document.getElementById("form-photo-input").addEventListener("change", handlePhotoInput);
+  }
+  function showPhotoPreview(dataUrl){
+    const picker = document.getElementById("photo-picker");
+    picker.innerHTML = `<img src="${dataUrl}"><input type="file" accept="image/*" id="form-photo-input">`;
+    document.getElementById("form-photo-input").addEventListener("change", handlePhotoInput);
+  }
+  function handlePhotoInput(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      // Resize/compress to keep storage reasonable
+      compressImage(ev.target.result, 900, 0.75).then(compressed=>{
+        pendingPhotoDataUrl = compressed;
+        showPhotoPreview(compressed);
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+  function compressImage(dataUrl, maxDim, quality){
+    return new Promise((resolve)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > h && w > maxDim){ h = h * (maxDim/w); w = maxDim; }
+        else if(h > maxDim){ w = w * (maxDim/h); h = maxDim; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = dataUrl;
+    });
+  }
+
+  document.getElementById("form-close").addEventListener("click", ()=>{ closeAllScreens(); });
+
+  document.getElementById("form-save-btn").addEventListener("click", async ()=>{
+    const code = document.getElementById("form-code").value.trim();
+    const name = document.getElementById("form-name").value.trim();
+
+    if(!code){ showToast("Vui lòng nhập mã vật tư"); document.getElementById("form-code").focus(); return; }
+    if(!name){ showToast("Vui lòng nhập tên sản phẩm"); document.getElementById("form-name").focus(); return; }
+
+    if(!editingCode){
+      const existing = await dbGet(code);
+      if(existing){
+        showToast("Mã này đã tồn tại! Mở mục đó để sửa.");
+        return;
+      }
+    }
+
+    const item = {
+      code: code,
+      name: name,
+      location: document.getElementById("form-loc").value.trim(),
+      unit: document.getElementById("form-unit").value.trim(),
+      qty: document.getElementById("form-qty").value.trim(),
+      note: document.getElementById("form-note").value.trim(),
+      photo: pendingPhotoDataUrl || null,
+      updatedAt: new Date().toISOString(),
+      createdAt: editingCode ? undefined : new Date().toISOString()
+    };
+
+    // Preserve original createdAt if editing
+    if(editingCode){
+      const old = await dbGet(editingCode);
+      item.createdAt = old ? old.createdAt : item.updatedAt;
+    }
+
+    await dbPut(item);
+    await refreshAndRender();
+    showToast(editingCode ? "Đã cập nhật" : "Đã lưu vật tư mới");
+    closeAllScreens();
+    openDetail(code);
+  });
+
+  // ===================== Tab bar =====================
+  document.getElementById("tab-list").addEventListener("click", closeAllScreens);
+  document.getElementById("tab-add").addEventListener("click", ()=> openForm(null));
+  document.getElementById("tab-scan").addEventListener("click", openScanner);
+
+  // ===================== Search =====================
+  document.getElementById("search-input").addEventListener("input", (e)=>{
+    renderList(e.target.value);
+  });
+  document.getElementById("clear-search-btn").addEventListener("click", ()=>{
+    document.getElementById("search-input").value = "";
+    renderList("");
+  });
+
+  // ===================== Scanner =====================
+  async function openScanner(){
+    showScreen("scan-screen");
+    document.getElementById("manual-code-input").value = "";
+    document.getElementById("scan-hint").textContent = "Đưa mã QR/vạch vào khung";
+
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
+      });
+      scanStream = stream;
+      const video = document.getElementById("scanner-video");
+      video.srcObject = stream;
+      await video.play();
+      scanLoop();
+    } catch(err){
+      document.getElementById("scan-hint").textContent = "Không truy cập được camera — hãy nhập mã ở dưới";
+    }
+  }
+
+  function scanLoop(){
+    const video = document.getElementById("scanner-video");
+    if(video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR !== "undefined"){
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const result = jsQR(imageData.data, imageData.width, imageData.height);
+      if(result && result.data){
+        onCodeDetected(result.data.trim());
+        return;
+      }
+    }
+    scanRAF = requestAnimationFrame(scanLoop);
+  }
+
+  function stopScanner(){
+    if(scanRAF) cancelAnimationFrame(scanRAF);
+    scanRAF = null;
+    if(scanStream){
+      scanStream.getTracks().forEach(t=>t.stop());
+      scanStream = null;
+    }
+  }
+
+  function onCodeDetected(code){
+    stopScanner();
+    showToast(`Đã quét: ${code}`);
+    closeAllScreens();
+    openDetail(code);
+  }
+
+  document.getElementById("scan-close").addEventListener("click", closeAllScreens);
+  document.getElementById("manual-code-go").addEventListener("click", ()=>{
+    const code = document.getElementById("manual-code-input").value.trim();
+    if(code) onCodeDetected(code);
+  });
+  document.getElementById("manual-code-input").addEventListener("keypress", (e)=>{
+    if(e.key === "Enter"){
+      const code = e.target.value.trim();
+      if(code) onCodeDetected(code);
+    }
+  });
+
+  // Edit button inside detail re-routes to edit form properly
+  document.getElementById("detail-edit-btn").addEventListener("click", ()=> openFormForEdit(currentDetailCode));
+  document.getElementById("detail-edit-btn2").addEventListener("click", ()=> openFormForEdit(currentDetailCode));
+
+  // ===================== Init =====================
+  resetPhotoPicker();
+  openDB().then(refreshAndRender).catch(err=>{
+    console.error(err);
+    showToast("Lỗi khởi tạo dữ liệu");
+  });
+
+})();
+</script>
+</body>
+</html>
