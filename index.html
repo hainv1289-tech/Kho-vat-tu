@@ -281,7 +281,8 @@
   <div id="main-screen">
     <div class="topbar">
       <h1>🏗️ Kho Vật Tư <span class="badge-count" id="item-count">0</span>
-        <button id="header-add-btn" style="margin-left:auto;background:var(--rust-500);border:none;color:var(--paper);width:32px;height:32px;border-radius:8px;font-size:18px;font-weight:700;">＋</button>
+        <button id="header-backup-btn" style="margin-left:auto;background:var(--concrete-700);border:1.5px solid var(--concrete-600);color:var(--paper);width:32px;height:32px;border-radius:8px;font-size:15px;">⚙️</button>
+        <button id="header-add-btn" style="background:var(--rust-500);border:none;color:var(--paper);width:32px;height:32px;border-radius:8px;font-size:18px;font-weight:700;">＋</button>
       </h1>
       <p class="sub">Vật tư &amp; công cụ dụng cụ</p>
     </div>
@@ -444,6 +445,39 @@
     </div>
     <div class="print-controls">
       <button class="btn-primary" id="print-all-btn" style="flex:1;">🖨️ In toàn bộ</button>
+    </div>
+  </div>
+
+  <!-- ===== BACKUP / SETTINGS SCREEN ===== -->
+  <div class="screen hidden" id="backup-screen">
+    <div class="screen-header">
+      <button class="back-btn" id="backup-close">‹</button>
+      <h2>Sao lưu dữ liệu</h2>
+    </div>
+    <div class="screen-body">
+      <div style="padding:18px 16px;">
+        <p style="font-size:13px;color:var(--steel-300);line-height:1.6;margin:0 0 20px;">
+          Dữ liệu (mã, ảnh, ghi chú) đang lưu trong Safari trên máy này. Nếu xoá lịch sử Safari hoặc đổi máy, dữ liệu sẽ mất.
+          <b style="color:var(--rebar-yellow);">Hãy xuất file sao lưu định kỳ</b> để không mất công nhập lại.
+        </p>
+
+        <div style="background:var(--concrete-800);border:1px solid var(--concrete-700);border-radius:10px;padding:16px;margin-bottom:14px;">
+          <div style="font-weight:700;margin-bottom:4px;">📤 Xuất dữ liệu</div>
+          <div style="font-size:12px;color:var(--steel-300);margin-bottom:12px;">Lưu toàn bộ vật tư + ảnh thành 1 file. Lưu file này vào iCloud Drive hoặc Files để an toàn.</div>
+          <button class="btn-primary" id="export-data-btn" style="width:100%;">Xuất file sao lưu</button>
+        </div>
+
+        <div style="background:var(--concrete-800);border:1px solid var(--concrete-700);border-radius:10px;padding:16px;margin-bottom:14px;">
+          <div style="font-weight:700;margin-bottom:4px;">📥 Nhập lại dữ liệu</div>
+          <div style="font-size:12px;color:var(--steel-300);margin-bottom:12px;">Khôi phục từ file đã xuất trước đó. <span style="color:var(--danger);">Sẽ thay thế toàn bộ dữ liệu hiện tại.</span></div>
+          <label class="btn-primary" style="width:100%;display:block;text-align:center;box-sizing:border-box;position:relative;overflow:hidden;">
+            Chọn file để nhập
+            <input type="file" accept="application/json" id="import-data-input" style="position:absolute;inset:0;opacity:0;cursor:pointer;">
+          </label>
+        </div>
+
+        <div id="backup-status" style="font-size:12px;color:var(--steel-300);text-align:center;margin-top:10px;"></div>
+      </div>
     </div>
   </div>
 
@@ -809,8 +843,69 @@
   // ===================== Tab bar =====================
   document.getElementById("tab-list").addEventListener("click", closeAllScreens);
   document.getElementById("header-add-btn").addEventListener("click", ()=> openForm(null));
+  document.getElementById("header-backup-btn").addEventListener("click", ()=> showScreen("backup-screen"));
   document.getElementById("tab-scan").addEventListener("click", openScanner);
   document.getElementById("tab-print").addEventListener("click", openPrintListScreen);
+
+  // ===================== Backup / Restore =====================
+  document.getElementById("backup-close").addEventListener("click", closeAllScreens);
+
+  document.getElementById("export-data-btn").addEventListener("click", async ()=>{
+    const status = document.getElementById("backup-status");
+    try{
+      status.textContent = "Đang chuẩn bị file...";
+      const items = await dbGetAll();
+      const payload = {
+        appName: "Kho Vat Tu",
+        exportedAt: new Date().toISOString(),
+        itemCount: items.length,
+        items: items
+      };
+      const json = JSON.stringify(payload);
+      const blob = new Blob([json], {type: "application/json"});
+      const url = URL.createObjectURL(blob);
+      const dateStr = new Date().toISOString().slice(0,10);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `kho-vat-tu-saoluu-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(()=> URL.revokeObjectURL(url), 2000);
+      status.textContent = `Đã xuất ${items.length} mã. Hãy lưu file vào Files hoặc iCloud Drive.`;
+      showToast("Đã xuất file sao lưu");
+    } catch(err){
+      console.error(err);
+      status.textContent = "Lỗi khi xuất dữ liệu.";
+    }
+  });
+
+  document.getElementById("import-data-input").addEventListener("change", async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const status = document.getElementById("backup-status");
+    try{
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      const items = Array.isArray(payload.items) ? payload.items : (Array.isArray(payload) ? payload : null);
+      if(!items){
+        status.textContent = "File không đúng định dạng sao lưu.";
+        return;
+      }
+      const confirmed = confirm(`Nhập ${items.length} mã từ file sao lưu? Toàn bộ dữ liệu hiện tại sẽ bị thay thế.`);
+      if(!confirmed){ e.target.value = ""; return; }
+      status.textContent = "Đang nhập dữ liệu...";
+      await dbClearAll();
+      await dbBulkPut(items);
+      await refreshAndRender();
+      status.textContent = `Đã nhập lại ${items.length} mã thành công.`;
+      showToast("Đã khôi phục dữ liệu");
+    } catch(err){
+      console.error(err);
+      status.textContent = "Lỗi: file không hợp lệ hoặc bị hỏng.";
+    }
+    e.target.value = "";
+  });
 
   // ===================== QR code screen =====================
   function buildQrPayload(item){
