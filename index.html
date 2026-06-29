@@ -6,9 +6,9 @@
 <title>Kho Vật Tư</title>
 <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiS2hvIFZhdCBUdSIsInNob3J0X25hbWUiOiJLaG9WVCIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwic3RhcnRfdXJsIjoiLiIsImJhY2tncm91bmRfY29sb3IiOiIjMUExODE2IiwidGhlbWVfY29sb3IiOiIjQzc1QTI4In0=">
 <style>
-				  :root{
-		    --concrete-900:#1A1816;
-		    --concrete-800:#26221F;
+  :root{
+    --concrete-900:#1A1816;
+    --concrete-800:#26221F;
     --concrete-700:#332E2A;
     --concrete-600:#4A433D;
     --steel-500:#7A8088;
@@ -113,6 +113,43 @@
   }
   .tabbar .scan-wrap{flex:1;display:flex;flex-direction:column;align-items:center;}
   .tabbar .scan-wrap span{font-size:11px;color:var(--rust-500);font-weight:700;margin-top:2px;}
+
+  /* ===== QR view & print ===== */
+  .qr-card{
+    background:#fff;border-radius:14px;padding:20px;margin:20px auto;
+    width:min(86%,300px);text-align:center;
+  }
+  .qr-card canvas{max-width:100%;}
+  .qr-card .qr-code-text{
+    font-family:var(--font-mono);font-weight:800;font-size:18px;color:#111;margin-top:10px;letter-spacing:0.5px;
+  }
+  .qr-card .qr-name-text{
+    font-size:13px;color:#444;margin-top:2px;line-height:1.3;
+  }
+  .qr-actions{padding:0 16px 20px;display:flex;flex-direction:column;gap:10px;}
+  .qr-hint{
+    text-align:center;color:var(--steel-300);font-size:13px;padding:0 24px 16px;line-height:1.5;
+  }
+  #print-list-screen .screen-body{padding:14px;background:#fff;}
+  .print-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  }
+  .print-cell{
+    border:1px solid #ccc;border-radius:8px;padding:10px 6px;text-align:center;
+    break-inside:avoid;page-break-inside:avoid;
+  }
+  .print-cell canvas{max-width:100%;height:auto;}
+  .print-cell .pc-code{font-family:monospace;font-weight:800;font-size:13px;color:#111;margin-top:4px;}
+  .print-cell .pc-name{font-size:10px;color:#333;margin-top:1px;line-height:1.2;}
+  .print-controls{
+    padding:12px 16px;background:var(--concrete-800);border-top:1px solid var(--concrete-700);
+    display:flex;gap:10px;
+  }
+  @media print{
+    .topbar,.searchbar,.tabbar,.screen-header,.print-controls{display:none !important;}
+    #print-list-screen .screen-body{padding:0;}
+    body{background:#fff !important;}
+  }
 
   /* ===== Screens (Scan / Detail / Form) ===== */
   .screen{
@@ -243,7 +280,9 @@
   <!-- ===== MAIN: LIST ===== -->
   <div id="main-screen">
     <div class="topbar">
-      <h1>🏗️ Kho Vật Tư <span class="badge-count" id="item-count">0</span></h1>
+      <h1>🏗️ Kho Vật Tư <span class="badge-count" id="item-count">0</span>
+        <button id="header-add-btn" style="margin-left:auto;background:var(--rust-500);border:none;color:var(--paper);width:32px;height:32px;border-radius:8px;font-size:18px;font-weight:700;">＋</button>
+      </h1>
       <p class="sub">Vật tư &amp; công cụ dụng cụ</p>
     </div>
     <div class="searchbar">
@@ -260,7 +299,7 @@
       <button class="scan-btn" id="tab-scan">▦</button>
       <span>Quét mã</span>
     </div>
-    <button id="tab-add"><span class="ic">＋</span>Thêm mới</button>
+    <button id="tab-print"><span class="ic">🖨️</span>In mã QR</button>
   </div>
 
   <!-- ===== SCAN SCREEN ===== -->
@@ -318,6 +357,9 @@
         </div>
 
         <div class="detail-actions">
+          <button class="btn-edit" id="detail-qr-btn">▦ Xem mã QR</button>
+        </div>
+        <div class="detail-actions" style="margin-top:10px;">
           <button class="btn-edit" id="detail-edit-btn2">✏️ Sửa thông tin</button>
           <button class="btn-delete" id="detail-delete-btn">🗑️ Xoá</button>
         </div>
@@ -372,11 +414,45 @@
     </div>
   </div>
 
+  <!-- ===== QR DETAIL SCREEN ===== -->
+  <div class="screen hidden" id="qr-screen">
+    <div class="screen-header">
+      <button class="back-btn" id="qr-close">‹</button>
+      <h2>Mã QR vật tư</h2>
+    </div>
+    <div class="screen-body">
+      <div class="qr-card" id="qr-card">
+        <div id="qr-canvas-holder" style="display:flex;justify-content:center;"></div>
+        <div class="qr-code-text" id="qr-code-text"></div>
+        <div class="qr-name-text" id="qr-name-text"></div>
+      </div>
+      <p class="qr-hint">In ngay từ Safari (nút Chia sẻ → In), hoặc chạm giữ ảnh để lưu rồi gửi đi in.</p>
+      <div class="qr-actions">
+        <button class="btn-primary" id="qr-print-btn">🖨️ In mã này</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PRINT ALL SCREEN ===== -->
+  <div class="screen hidden" id="print-list-screen">
+    <div class="screen-header" style="background:var(--concrete-800);">
+      <button class="back-btn" id="print-list-close">‹</button>
+      <h2>In tất cả mã QR</h2>
+    </div>
+    <div class="screen-body">
+      <div class="print-grid" id="print-grid"></div>
+    </div>
+    <div class="print-controls">
+      <button class="btn-primary" id="print-all-btn" style="flex:1;">🖨️ In toàn bộ</button>
+    </div>
+  </div>
+
 </div>
 
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -437,6 +513,7 @@
 
   // ===================== State =====================
   let allItems = [];
+  let allItemsMap = {}; // code -> item, kept in sync via refreshAndRender
   let currentDetailCode = null;
   let editingCode = null; // null = adding new, else editing existing
   let pendingPhotoDataUrl = null;
@@ -523,6 +600,8 @@
 
   async function refreshAndRender(){
     allItems = await dbGetAll();
+    allItemsMap = {};
+    allItems.forEach(it=>{ allItemsMap[it.code] = it; });
     renderList(document.getElementById("search-input").value);
   }
 
@@ -712,8 +791,85 @@
 
   // ===================== Tab bar =====================
   document.getElementById("tab-list").addEventListener("click", closeAllScreens);
-  document.getElementById("tab-add").addEventListener("click", ()=> openForm(null));
+  document.getElementById("header-add-btn").addEventListener("click", ()=> openForm(null));
   document.getElementById("tab-scan").addEventListener("click", openScanner);
+  document.getElementById("tab-print").addEventListener("click", openPrintListScreen);
+
+  // ===================== QR code screen =====================
+  function buildQrPayload(item){
+    // Encode as simple JSON so scanning also works to look up by code even
+    // if pasted elsewhere; but primary lookup uses the code string directly.
+    return item.code;
+  }
+
+  function openQrScreen(code){
+    const item = allItemsMap[code];
+    if(!item) return;
+    showScreen("qr-screen");
+    const holder = document.getElementById("qr-canvas-holder");
+    holder.innerHTML = "";
+    if(typeof QRCode !== "undefined"){
+      new QRCode(holder, {
+        text: buildQrPayload(item),
+        width: 220,
+        height: 220,
+        colorDark: "#111111",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } else {
+      holder.innerHTML = "<div style='color:#900;font-size:13px;'>Không tải được thư viện tạo mã QR. Kiểm tra kết nối mạng rồi mở lại.</div>";
+    }
+    document.getElementById("qr-code-text").textContent = item.code;
+    document.getElementById("qr-name-text").textContent = item.name;
+  }
+
+  document.getElementById("qr-close").addEventListener("click", ()=> openDetail(currentDetailCode));
+  document.getElementById("detail-qr-btn").addEventListener("click", ()=> openQrScreen(currentDetailCode));
+  document.getElementById("qr-print-btn").addEventListener("click", ()=> window.print());
+
+  // ===================== Print-all screen =====================
+
+  function openPrintListScreen(){
+    showScreen("print-list-screen");
+    const grid = document.getElementById("print-grid");
+    grid.innerHTML = "";
+    const items = allItems.slice().sort((a,b)=> a.code.localeCompare(b.code, 'vi'));
+    if(items.length === 0){
+      grid.innerHTML = "<p style='color:#666;text-align:center;grid-column:1/-1;padding:30px 10px;'>Chưa có vật tư nào để in. Hãy thêm vật tư trước.</p>";
+      return;
+    }
+    items.forEach(it=>{
+      const cell = document.createElement("div");
+      cell.className = "print-cell";
+      const qrHolder = document.createElement("div");
+      qrHolder.style.display = "flex";
+      qrHolder.style.justifyContent = "center";
+      cell.appendChild(qrHolder);
+      const codeEl = document.createElement("div");
+      codeEl.className = "pc-code";
+      codeEl.textContent = it.code;
+      cell.appendChild(codeEl);
+      const nameEl = document.createElement("div");
+      nameEl.className = "pc-name";
+      nameEl.textContent = it.name;
+      cell.appendChild(nameEl);
+      grid.appendChild(cell);
+      if(typeof QRCode !== "undefined"){
+        new QRCode(qrHolder, {
+          text: it.code,
+          width: 110,
+          height: 110,
+          colorDark: "#111111",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }
+    });
+  }
+
+  document.getElementById("print-list-close").addEventListener("click", closeAllScreens);
+  document.getElementById("print-all-btn").addEventListener("click", ()=> window.print());
 
   // ===================== Search =====================
   document.getElementById("search-input").addEventListener("input", (e)=>{
