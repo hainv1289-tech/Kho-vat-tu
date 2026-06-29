@@ -486,7 +486,7 @@
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.js"></script>
 <script>
 (function(){
   "use strict";
@@ -914,24 +914,46 @@
     return item.code;
   }
 
+  // Renders a crisp SVG QR code into `holderEl` using the qrcode-generator
+  // library (pure matrix encoder, no canvas/DOM sizing quirks that can
+  // distort modules when printed — which is what caused scans to fail).
+  function renderQrSvg(holderEl, text, pixelSize){
+    holderEl.innerHTML = "";
+    if(typeof qrcode === "undefined"){
+      holderEl.innerHTML = "<div style='color:#900;font-size:12px;padding:10px;'>Không tải được thư viện tạo mã QR. Kiểm tra mạng rồi mở lại.</div>";
+      return;
+    }
+    // Type 0 = auto-detect smallest version that fits; ECC level M is a good
+    // balance of error tolerance vs. density for small printed labels.
+    const qr = qrcode(0, "M");
+    qr.addData(text);
+    qr.make();
+    const moduleCount = qr.getModuleCount();
+    const size = pixelSize || 220;
+    const cell = size / moduleCount;
+    let rects = "";
+    for(let row = 0; row < moduleCount; row++){
+      for(let col = 0; col < moduleCount; col++){
+        if(qr.isDark(row, col)){
+          const x = (col * cell).toFixed(2);
+          const y = (row * cell).toFixed(2);
+          rects += `<rect x="${x}" y="${y}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}"/>`;
+        }
+      }
+    }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" shape-rendering="crispEdges" style="background:#fff;display:block;">
+      <rect x="0" y="0" width="${size}" height="${size}" fill="#fff"/>
+      <g fill="#111111">${rects}</g>
+    </svg>`;
+    holderEl.innerHTML = svg;
+  }
+
   function openQrScreen(code){
     const item = allItemsMap[code];
     if(!item) return;
     showScreen("qr-screen");
     const holder = document.getElementById("qr-canvas-holder");
-    holder.innerHTML = "";
-    if(typeof QRCode !== "undefined"){
-      new QRCode(holder, {
-        text: buildQrPayload(item),
-        width: 220,
-        height: 220,
-        colorDark: "#111111",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    } else {
-      holder.innerHTML = "<div style='color:#900;font-size:13px;'>Không tải được thư viện tạo mã QR. Kiểm tra kết nối mạng rồi mở lại.</div>";
-    }
+    renderQrSvg(holder, buildQrPayload(item), 220);
     document.getElementById("qr-code-text").textContent = item.code;
     document.getElementById("qr-name-text").textContent = item.name;
   }
@@ -967,16 +989,7 @@
       nameEl.textContent = it.name;
       cell.appendChild(nameEl);
       grid.appendChild(cell);
-      if(typeof QRCode !== "undefined"){
-        new QRCode(qrHolder, {
-          text: it.code,
-          width: 110,
-          height: 110,
-          colorDark: "#111111",
-          colorLight: "#ffffff",
-          correctLevel: QRCode.CorrectLevel.M
-        });
-      }
+      renderQrSvg(qrHolder, it.code, 110);
     });
   }
 
