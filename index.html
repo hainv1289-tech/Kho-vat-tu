@@ -1100,6 +1100,13 @@
   });
 
   // ===================== Scanner =====================
+  // Reused canvas (created once) avoids the GC/allocation overhead of building
+  // a new <canvas> every animation frame, which was throttling scan rate on
+  // iPhone enough that jsQR rarely got a clean, in-focus frame to decode.
+  const scanCanvas = document.createElement("canvas");
+  const scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
+  const SCAN_PROCESS_WIDTH = 480; // downscaled width fed to jsQR — plenty for decoding, much faster than full camera resolution
+
   async function openScanner(){
     showScreen("scan-screen");
     document.getElementById("manual-code-input").value = "";
@@ -1107,12 +1114,32 @@
 
     try{
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
+        video: {
+          facingMode: "environment",
+          // Request continuous autofocus where supported (helps a lot when
+          // scanning small/close QR codes — without this some iPhones default
+          // to a fixed far-focus that blurs anything closer than ~30cm).
+          focusMode: "continuous",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
       });
       scanStream = stream;
       const video = document.getElementById("scanner-video");
       video.srcObject = stream;
       await video.play();
+
+      // Some browsers expose focus control via the track's capabilities API;
+      // apply it explicitly as a fallback for devices that ignore the
+      // constraint above.
+      try{
+        const [track] = stream.getVideoTracks();
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        if(caps.focusMode && caps.focusMode.includes("continuous")){
+          await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+        }
+      } catch(focusErr){ /* not supported — safe to ignore */ }
+
       scanLoop();
     } catch(err){
       document.getElementById("scan-hint").textContent = "Không truy cập được camera — hãy nhập mã ở dưới";
@@ -1121,14 +1148,19 @@
 
   function scanLoop(){
     const video = document.getElementById("scanner-video");
-    if(video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR !== "undefined"){
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const result = jsQR(imageData.data, imageData.width, imageData.height);
+    if(video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR !== "undefined" && video.videoWidth){
+      const scale = SCAN_PROCESS_WIDTH / video.videoWidth;
+      const w = SCAN_PROCESS_WIDTH;
+      const h = Math.round(video.videoHeight * scale);
+      if(scanCanvas.width !== w || scanCanvas.height !== h){
+        scanCanvas.width = w;
+        scanCanvas.height = h;
+      }
+      scanCtx.drawImage(video, 0, 0, w, h);
+      const imageData = scanCtx.getImageData(0, 0, w, h);
+      const result = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "attemptBoth" // tries both normal and color-inverted reads — catches QR codes on dark/glossy labels
+      });
       if(result && result.data){
         onCodeDetected(result.data.trim());
         return;
