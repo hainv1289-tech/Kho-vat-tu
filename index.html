@@ -136,7 +136,11 @@
   }
   .print-cell{
     border:1px solid #ccc;border-radius:8px;padding:10px 6px;text-align:center;
-    break-inside:avoid;page-break-inside:avoid;
+    break-inside:avoid;page-break-inside:avoid;position:relative;
+  }
+  .print-cell.unchecked{opacity:0.35;}
+  .print-cell .pc-checkbox{
+    position:absolute;top:6px;left:6px;width:22px;height:22px;z-index:5;accent-color:var(--rust-500);
   }
   .print-cell canvas{max-width:100%;height:auto;}
   .print-cell .pc-code{font-family:monospace;font-weight:800;font-size:13px;color:#111;margin-top:4px;}
@@ -146,8 +150,9 @@
     display:flex;gap:10px;
   }
   @media print{
-    .topbar,.searchbar,.tabbar,.screen-header,.print-controls{display:none !important;}
+    .topbar,.searchbar,.tabbar,.screen-header,.print-controls,.no-print,.pc-checkbox{display:none !important;}
     #print-list-screen .screen-body{padding:0;}
+    .print-cell.unchecked{display:none !important;}
     body{background:#fff !important;}
   }
 
@@ -177,6 +182,19 @@
     position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     width:78%;max-width:320px;aspect-ratio:1.4;border:3px solid var(--rebar-yellow);
     border-radius:14px;box-shadow:0 0 0 2000px rgba(0,0,0,0.45);
+    overflow:hidden;
+  }
+  .scan-line{
+    position:absolute;left:0;right:0;height:3px;
+    background:linear-gradient(90deg, transparent 0%, #ff3333 20%, #ff6666 50%, #ff3333 80%, transparent 100%);
+    box-shadow:0 0 8px 2px rgba(255,50,50,0.7);
+    animation:scanMove 1.8s ease-in-out infinite;
+    top:0;
+  }
+  @keyframes scanMove{
+    0%{top:8%;opacity:1;}
+    50%{top:88%;opacity:1;}
+    100%{top:8%;opacity:1;}
   }
   .scan-hint{
     position:absolute;bottom:36px;left:0;right:0;text-align:center;
@@ -311,7 +329,9 @@
     </div>
     <div class="screen-body">
       <video id="scanner-video" autoplay muted playsinline></video>
-      <div class="scan-frame"></div>
+      <div class="scan-frame">
+        <div class="scan-line"></div>
+      </div>
       <div class="scan-hint" id="scan-hint">Đưa mã QR/vạch vào khung</div>
     </div>
     <div class="manual-input-row">
@@ -438,13 +458,21 @@
   <div class="screen hidden" id="print-list-screen">
     <div class="screen-header" style="background:var(--concrete-800);">
       <button class="back-btn" id="print-list-close">‹</button>
-      <h2>In tất cả mã QR</h2>
+      <h2>In mã QR</h2>
+    </div>
+    <div class="manual-input-row no-print" style="border-top:none;border-bottom:1px solid var(--concrete-700);">
+      <input type="text" id="print-search-input" placeholder="Tìm mã/tên để chọn..." style="font-family:inherit;">
+    </div>
+    <div class="no-print" style="display:flex;gap:8px;padding:10px 16px;background:var(--concrete-800);border-bottom:1px solid var(--concrete-700);align-items:center;">
+      <span id="print-selected-count" style="font-size:13px;color:var(--steel-300);flex:1;">Đã chọn: 0</span>
+      <button class="text-btn" id="print-select-all-btn" style="font-size:13px;">Chọn tất cả</button>
+      <button class="text-btn" id="print-select-none-btn" style="font-size:13px;color:var(--steel-300);">Bỏ chọn</button>
     </div>
     <div class="screen-body">
       <div class="print-grid" id="print-grid"></div>
     </div>
     <div class="print-controls">
-      <button class="btn-primary" id="print-all-btn" style="flex:1;">🖨️ In toàn bộ</button>
+      <button class="btn-primary" id="print-all-btn" style="flex:1;">🖨️ In mã đã chọn</button>
     </div>
   </div>
 
@@ -963,38 +991,104 @@
   document.getElementById("qr-print-btn").addEventListener("click", ()=> window.print());
 
   // ===================== Print-all screen =====================
+  let printSelectedCodes = new Set();
 
-  function openPrintListScreen(){
-    showScreen("print-list-screen");
+  function updatePrintSelectedCount(){
+    document.getElementById("print-selected-count").textContent = `Đã chọn: ${printSelectedCodes.size}`;
+  }
+
+  function renderPrintGrid(filterText){
     const grid = document.getElementById("print-grid");
     grid.innerHTML = "";
-    const items = allItems.slice().sort((a,b)=> a.code.localeCompare(b.code, 'vi'));
+    const q = normalize(filterText || "");
+    let items = allItems.slice().sort((a,b)=> a.code.localeCompare(b.code, 'vi'));
+    if(q){
+      items = items.filter(it=> normalize(it.code).includes(q) || normalize(it.name).includes(q));
+    }
     if(items.length === 0){
-      grid.innerHTML = "<p style='color:#666;text-align:center;grid-column:1/-1;padding:30px 10px;'>Chưa có vật tư nào để in. Hãy thêm vật tư trước.</p>";
+      grid.innerHTML = "<p style='color:#666;text-align:center;grid-column:1/-1;padding:30px 10px;'>" +
+        (allItems.length===0 ? "Chưa có vật tư nào để in. Hãy thêm vật tư trước." : "Không tìm thấy mã phù hợp.") +
+        "</p>";
       return;
     }
     items.forEach(it=>{
+      const isChecked = printSelectedCodes.has(it.code);
       const cell = document.createElement("div");
-      cell.className = "print-cell";
+      cell.className = "print-cell" + (isChecked ? "" : " unchecked");
+      cell.dataset.code = it.code;
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "pc-checkbox";
+      checkbox.checked = isChecked;
+      checkbox.addEventListener("change", ()=>{
+        if(checkbox.checked){ printSelectedCodes.add(it.code); cell.classList.remove("unchecked"); }
+        else { printSelectedCodes.delete(it.code); cell.classList.add("unchecked"); }
+        updatePrintSelectedCount();
+      });
+      cell.appendChild(checkbox);
+
       const qrHolder = document.createElement("div");
       qrHolder.style.display = "flex";
       qrHolder.style.justifyContent = "center";
       cell.appendChild(qrHolder);
+
       const codeEl = document.createElement("div");
       codeEl.className = "pc-code";
       codeEl.textContent = it.code;
       cell.appendChild(codeEl);
+
       const nameEl = document.createElement("div");
       nameEl.className = "pc-name";
       nameEl.textContent = it.name;
       cell.appendChild(nameEl);
+
+      // Tapping anywhere on the cell (not just the tiny checkbox) toggles selection —
+      // easier to hit accurately on a phone screen.
+      cell.addEventListener("click", (e)=>{
+        if(e.target === checkbox) return;
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event("change"));
+      });
+
       grid.appendChild(cell);
       renderQrSvg(qrHolder, it.code, 110);
     });
   }
 
+  function openPrintListScreen(){
+    showScreen("print-list-screen");
+    printSelectedCodes = new Set();
+    document.getElementById("print-search-input").value = "";
+    updatePrintSelectedCount();
+    renderPrintGrid("");
+  }
+
   document.getElementById("print-list-close").addEventListener("click", closeAllScreens);
-  document.getElementById("print-all-btn").addEventListener("click", ()=> window.print());
+
+  document.getElementById("print-search-input").addEventListener("input", (e)=>{
+    renderPrintGrid(e.target.value);
+  });
+
+  document.getElementById("print-select-all-btn").addEventListener("click", ()=>{
+    allItems.forEach(it=> printSelectedCodes.add(it.code));
+    updatePrintSelectedCount();
+    renderPrintGrid(document.getElementById("print-search-input").value);
+  });
+
+  document.getElementById("print-select-none-btn").addEventListener("click", ()=>{
+    printSelectedCodes.clear();
+    updatePrintSelectedCount();
+    renderPrintGrid(document.getElementById("print-search-input").value);
+  });
+
+  document.getElementById("print-all-btn").addEventListener("click", ()=>{
+    if(printSelectedCodes.size === 0){
+      showToast("Hãy chọn ít nhất 1 mã để in");
+      return;
+    }
+    window.print();
+  });
 
   // ===================== Search =====================
   document.getElementById("search-input").addEventListener("input", (e)=>{
