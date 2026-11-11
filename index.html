@@ -385,7 +385,7 @@
           <button class="btn-edit" id="detail-qr-btn">▦ Xem mã QR</button>
         </div>
         <div class="detail-actions" style="margin-top:10px;">
-          <button class="btn-search-img" id="detail-search-img-btn">🔍 Tìm ảnh Google</button>
+          <button class="btn-search-img" id="detail-search-img-btn">🔍 Tìm ảnh (Gemini)</button>
         </div>
         <div class="detail-actions" style="margin-top:10px;" id="detail-verify-row">
           <button class="btn-verify" id="detail-verify-btn">✅ Xác minh ảnh đúng</button>
@@ -541,7 +541,7 @@
   "use strict";
 
   // ===================== APP VERSION =====================
-  const APP_VERSION = "v1.9 · 11/11/2026 18:20";
+  const APP_VERSION = "v1.9 · 11/11/2026 18:40";
 
   // ===================== FIREBASE CONFIG =====================
   const firebaseConfig = {
@@ -788,12 +788,12 @@
   document.getElementById("detail-edit-btn").addEventListener("click", ()=> openFormForEdit(currentDetailCode));
   document.getElementById("detail-edit-btn2").addEventListener("click", ()=> openFormForEdit(currentDetailCode));
 
-  // Tìm ảnh Google
+  // Tìm ảnh Gemini
   document.getElementById("detail-search-img-btn").addEventListener("click", async ()=>{
     const item = await dbGet(currentDetailCode);
     if(!item) return;
-    const query = encodeURIComponent(item.name + " vật tư công nghiệp");
-    window.open(`https://www.google.com/search?q=${query}&tbm=isch`, "_blank");
+    const prompt = encodeURIComponent(`cho tôi ảnh ${item.name}`);
+    window.open(`https://gemini.google.com/app?q=${prompt}`, "_blank");
   });
 
   // Xác minh ảnh
