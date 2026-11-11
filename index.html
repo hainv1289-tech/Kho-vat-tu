@@ -246,6 +246,10 @@
   .detail-actions{display:flex;gap:10px;margin-top:20px;}
   .detail-actions button{flex:1;padding:13px;border-radius:var(--radius);font-size:15px;font-weight:700;font-family:inherit;border:none;}
   .btn-edit{background:var(--concrete-700);color:var(--paper);border:1.5px solid var(--concrete-600) !important;}
+  .btn-search-img{flex:1;padding:13px;border-radius:var(--radius);font-size:15px;font-weight:700;font-family:inherit;border:none;background:#1a73e8;color:#fff;cursor:pointer;}
+  .btn-verify{flex:1;padding:13px;border-radius:var(--radius);font-size:15px;font-weight:700;font-family:inherit;border:none;background:#2e7d32;color:#fff;cursor:pointer;}
+  .btn-unverify{padding:8px 14px;border-radius:var(--radius);font-size:13px;font-family:inherit;border:1.5px solid var(--concrete-600);background:transparent;color:var(--concrete-400);cursor:pointer;}
+  .verified-badge{color:#4caf50;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;}
   .btn-delete{background:rgba(184,69,58,0.15);color:var(--danger);}
 
   /* Form screen */
@@ -379,6 +383,16 @@
 
         <div class="detail-actions">
           <button class="btn-edit" id="detail-qr-btn">▦ Xem mã QR</button>
+        </div>
+        <div class="detail-actions" style="margin-top:10px;">
+          <button class="btn-search-img" id="detail-search-img-btn">🔍 Tìm ảnh Google</button>
+        </div>
+        <div class="detail-actions" style="margin-top:10px;" id="detail-verify-row">
+          <button class="btn-verify" id="detail-verify-btn">✅ Xác minh ảnh đúng</button>
+        </div>
+        <div class="detail-actions" style="margin-top:10px;" id="detail-verified-row">
+          <span class="verified-badge">✅ Ảnh đã xác minh</span>
+          <button class="btn-unverify" id="detail-unverify-btn">Huỷ xác minh</button>
         </div>
         <div class="detail-actions" style="margin-top:10px;">
           <button class="btn-edit" id="detail-edit-btn2">✏️ Sửa thông tin</button>
@@ -527,7 +541,7 @@
   "use strict";
 
   // ===================== APP VERSION =====================
-  const APP_VERSION = "v1.8 · 18/10/2026 07:25";
+  const APP_VERSION = "v1.9 · 11/11/2026 18:20";
 
   // ===================== FIREBASE CONFIG =====================
   const firebaseConfig = {
@@ -746,6 +760,17 @@
     const photoEl = document.getElementById("detail-photo");
     photoEl.innerHTML = item.photo ? `<img src="${escapeHtml(item.photo)}">` : "📦";
 
+    // Hiện/ẩn nút xác minh
+    const verifyRow = document.getElementById("detail-verify-row");
+    const verifiedRow = document.getElementById("detail-verified-row");
+    if(item.photoVerified){
+      verifyRow.style.display = "none";
+      verifiedRow.style.display = "flex";
+    } else {
+      verifyRow.style.display = item.photo ? "flex" : "none";
+      verifiedRow.style.display = "none";
+    }
+
     const pill = document.getElementById("detail-stock-pill");
     const qtyNum = parseFloat(item.qty);
     if(!isNaN(qtyNum)){
@@ -762,6 +787,34 @@
   document.getElementById("detail-close").addEventListener("click", ()=>{ closeAllScreens(); });
   document.getElementById("detail-edit-btn").addEventListener("click", ()=> openFormForEdit(currentDetailCode));
   document.getElementById("detail-edit-btn2").addEventListener("click", ()=> openFormForEdit(currentDetailCode));
+
+  // Tìm ảnh Google
+  document.getElementById("detail-search-img-btn").addEventListener("click", async ()=>{
+    const item = await dbGet(currentDetailCode);
+    if(!item) return;
+    const query = encodeURIComponent(item.name + " vật tư công nghiệp");
+    window.open(`https://www.google.com/search?q=${query}&tbm=isch`, "_blank");
+  });
+
+  // Xác minh ảnh
+  document.getElementById("detail-verify-btn").addEventListener("click", async ()=>{
+    const item = await dbGet(currentDetailCode);
+    if(!item) return;
+    if(!confirm(`Xác minh ảnh của "${item.name}" là chính xác?\n\nSau khi xác minh, ảnh sẽ được đánh dấu đã kiểm tra.`)) return;
+    await dbPut({...item, photoVerified: true, verifiedAt: new Date().toISOString()});
+    showToast("✅ Đã xác minh ảnh!");
+    openDetail(currentDetailCode);
+  });
+
+  // Huỷ xác minh
+  document.getElementById("detail-unverify-btn").addEventListener("click", async ()=>{
+    const item = await dbGet(currentDetailCode);
+    if(!item) return;
+    if(!confirm(`Huỷ xác minh ảnh của "${item.name}"?`)) return;
+    await dbPut({...item, photoVerified: false, verifiedAt: null});
+    showToast("Đã huỷ xác minh.");
+    openDetail(currentDetailCode);
+  });
   document.getElementById("detail-delete-btn").addEventListener("click", async ()=>{
     if(confirm("Xoá vật tư này? Hành động này không thể hoàn tác.")){
       showLoading("Đang xoá...");
